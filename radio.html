@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8">
+      <title>AI Police Radio System</title>
+      <style>
+         body {
+         background: #070a0f;
+         color: #00ff9c;
+         font-family: monospace;
+         text-align: center;
+         padding-top: 70px;
+         }
+         h1 {
+         margin-bottom: 10px;
+         }
+         #panel {
+         margin-top: 30px;
+         font-size: 14px;
+         opacity: 0.9;
+         }
+         button {
+         padding: 18px 35px;
+         font-size: 18px;
+         background: #111;
+         border: 2px solid #00ff9c;
+         color: #00ff9c;
+         border-radius: 10px;
+         }
+         button.active {
+         background: #00ff9c;
+         color: #000;
+         }
+         #status {
+         margin-top: 20px;
+         font-size: 14px;
+         }
+      </style>
+   </head>
+   <body>
+      <h1>🚓 AI Dispatch Radio System</h1>
+      <button id="ptt">HOLD PTT (SPACEBAR)</button>
+      <div id="status">Idle</div>
+      <div id="panel">
+         Unit: <b>Lincoln 12</b><br>
+         Status: Online<br>
+         Connection: Secure Channel 3
+      </div>
+      <!-- Sounds -->
+      <audio id="beepOn" src="https://dl.sndup.net/7ch4v/push_02.wav"></audio>
+      <audio id="beepOff" src="https://www.soundjay.com/button/beep-10.wav"></audio>
+      <audio id="static" loop src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8b0b8f3c6.mp3?filename=radio-static-ambient-110397.mp3"></audio>
+      <script>
+         const btn = document.getElementById("ptt");
+         const status = document.getElementById("status");
+         
+         let recognition;
+         let isTalking = false;
+         
+         // 🎤 Speech Recognition
+         if ('webkitSpeechRecognition' in window) {
+           recognition = new webkitSpeechRecognition();
+           recognition.continuous = false;
+           recognition.interimResults = false;
+         }
+         
+         // 📡 Start static background
+         const staticNoise = document.getElementById("static");
+         staticNoise.volume = 0.15;
+         staticNoise.play();
+         
+         // 🚓 Push-to-talk ON
+         function startPTT() {
+           if (isTalking) return;
+           isTalking = true;
+         
+           btn.classList.add("active");
+           document.getElementById("beepOn").play();
+         
+           status.innerText = "Transmitting...";
+           recognition.start();
+         }
+         
+         // 🚓 Push-to-talk OFF
+         function stopPTT() {
+           if (!isTalking) return;
+           isTalking = false;
+         
+           btn.classList.remove("active");
+           document.getElementById("beepOff").play();
+         
+           recognition.stop();
+           status.innerText = "Processing...";
+         }
+         
+         // ⌨️ SPACEBAR PTT
+         document.addEventListener("keydown", (e) => {
+           if (e.code === "Space") startPTT();
+         });
+         
+         document.addEventListener("keyup", (e) => {
+           if (e.code === "Space") stopPTT();
+         });
+         
+         // 🎤 Speech result
+         recognition.onresult = async (event) => {
+           const text = event.results[0][0].transcript;
+           status.innerText = "You: " + text;
+         
+           const response = await fetchAI(text);
+           speak(response);
+         };
+         
+         // 🤖 GEMINI AI
+         async function fetchAI(input) {
+           const apiKey = "AIzaSyCu_1i5iIDhuHkds8EYlaHL9R3LDeyBB90";
+         
+           const res = await fetch(
+             "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey,
+             {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({
+                 contents: [{
+                   parts: [{
+                     text:
+         `You are a realistic emergency police dispatcher.
+         Use short radio communication.
+         Always respond like radio traffic.
+         
+         Use call sign "Lincoln 12" as responding unit.
+         
+         Keep responses under 12 words.
+         
+         Example:
+         "Lincoln 12, copy, proceed to 10-50 on Main St."
+         
+         User: ${input}`
+                   }]
+                 }]
+               })
+             }
+           );
+         
+           const data = await res.json();
+         
+           try {
+             return data.candidates[0].content.parts[0].text;
+           } catch {
+             return "Dispatch unavailable, repeat last transmission.";
+           }
+         }
+         
+         // 🔊 RADIO STYLE SPEECH (DISTORTED)
+         function speak(text) {
+           status.innerText = "Dispatch: " + text;
+         
+           const utterance = new SpeechSynthesisUtterance(text);
+         
+           utterance.rate = 0.88;
+           utterance.pitch = 0.75;
+           utterance.volume = 1;
+         
+           // slightly robotic / radio feel
+           speechSynthesis.speak(utterance);
+         }
+      </script>
+   </body>
+</html>
